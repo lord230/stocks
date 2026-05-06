@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Targets & Signals</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f8;
+            --card-bg: #ffffff;
+            --primary-text: #1c1c1c;
+            --secondary-text: #5e6c79;
+            --accent-color: #00b386; /* Groww Green */
+            --danger-color: #eb5b3c;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--primary-text);
+            padding-bottom: 2rem;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            text-align: center;
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #searchInput:focus {
+            border-color: var(--accent-color);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--secondary-text);
+        }
+
+        .container {
+            padding: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .stock-card {
+            display: block;
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            border: 1px solid var(--border-color);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .stock-card:active {
+            transform: scale(0.98);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px dashed var(--border-color);
+        }
+
+        .stock-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .stock-type {
+            font-size: 0.75rem;
+            background-color: #e6f7f2;
+            color: var(--accent-color);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            text-align: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .grid-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .grid-label {
+            font-size: 0.7rem;
+            color: var(--secondary-text);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .grid-val {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .val-target { color: var(--accent-color); }
+        .val-sl { color: var(--danger-color); }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+
+        .confidence {
+            letter-spacing: 2px;
+        }
+
+        .groww-hint {
+            color: var(--secondary-text);
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .no-results {
+            text-align: center;
+            color: var(--secondary-text);
+            padding: 2rem;
+            display: none;
+        }
+
+        .disclaimer {
+            font-size: 0.7rem;
+            color: var(--secondary-text);
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Trade Setups</h1>
+        <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search stocks (e.g. ADANI, HUL)..." oninput="filterStocks()">
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="stockList">
+            <!-- Stock cards will be injected here by JavaScript -->
+        </div>
+        <div id="noResults" class="no-results">
+            No stocks found matching your search.
+        </div>
+        <p class="disclaimer">
+            *This data is for educational purposes. Clicking a card will redirect you to the Groww app if installed, or the Groww website. 🪙 indicates Penny/Small Cap.
+        </p>
+    </div>
+
+    <script>
+        // Data parsed from your provided table
+        const stockData = [
+            { id: 1, name: "ADANIPORTS", entry: "₹1,630–1,650", target: "₹1,820", sl: "₹1,578", type: "Swing", conf: "⭐⭐⭐⭐" },
+            { id: 2, name: "HUL", entry: "₹2,340–2,360", target: "₹2,520", sl: "₹2,290", type: "Swing", conf: "⭐⭐⭐⭐" },
+            { id: 3, name: "MARUTI", entry: "₹12,100–12,200", target: "₹12,950", sl: "₹11,850", type: "Swing", conf: "⭐⭐⭐⭐" },
+            { id: 4, name: "LT", entry: "₹3,480–3,520", target: "₹3,800", sl: "₹3,400", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 5, name: "RELIANCE", entry: "₹1,370–1,390", target: "₹1,510", sl: "₹1,330", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 6, name: "IDEAFORGE", entry: "₹710–725", target: "₹855", sl: "₹678", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 7, name: "VEDANTA", entry: "₹288–295", target: "₹345", sl: "₹268", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 8, name: "CGPOWER", entry: "₹710–730", target: "₹870", sl: "₹685", type: "Swing", conf: "⭐⭐⭐⭐" },
+            { id: 9, name: "AMBUJACEM", entry: "₹590–605", target: "₹680", sl: "₹570", type: "Swing", conf: "⭐⭐⭐⭐" },
+            { id: 10, name: "RAILTEL", entry: "₹260–268", target: "₹320", sl: "₹248", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 11, name: "NBCC", entry: "₹88–92", target: "₹112", sl: "₹83", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 12, name: "IRFC", entry: "₹175–180", target: "₹210", sl: "₹165", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 13, name: "TORNTPHARM", entry: "₹4,100–4,150", target: "₹4,660", sl: "₹3,900", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 14, name: "SUZLON 🪙", entry: "₹42–45", target: "₹62", sl: "₹38", type: "Swing", conf: "⭐⭐⭐⭐" },
+            { id: 15, name: "NHPC 🪙", entry: "₹68–72", target: "₹88", sl: "₹63", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 16, name: "HUDCO 🪙", entry: "₹148–155", target: "₹185", sl: "₹138", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 17, name: "YES BANK 🪙", entry: "₹17.5–18.5", target: "₹24", sl: "₹16", type: "Intraday/2D", conf: "⭐⭐" },
+            { id: 18, name: "JPPOWER 🪙", entry: "₹15–16.5", target: "₹22", sl: "₹13.5", type: "Intraday", conf: "⭐⭐" },
+            { id: 19, name: "TRIDENT 🪙", entry: "₹36–39", target: "₹52", sl: "₹33", type: "Swing", conf: "⭐⭐⭐" },
+            { id: 20, name: "ORIENTGREEN 🪙", entry: "₹21–23", target: "₹32", sl: "₹19", type: "Swing", conf: "⭐⭐" }
+        ];
+
+        const stockListContainer = document.getElementById('stockList');
+        const noResults = document.getElementById('noResults');
+
+        // Function to render stocks
+        function renderStocks(stocks) {
+            stockListContainer.innerHTML = '';
+            
+            if (stocks.length === 0) {
+                noResults.style.display = 'block';
+                return;
+            }
+            
+            noResults.style.display = 'none';
+
+            stocks.forEach(stock => {
+                // Remove the coin emoji for the search query to ensure Groww finds the right stock
+                const cleanName = stock.name.replace(' 🪙', '').trim();
+                // Standard URL that triggers Android App Links / iOS Universal Links
+                const growwUrl = `https://groww.in/search?q=${encodeURIComponent(cleanName)}`;
+
+                const card = document.createElement('a');
+                card.href = growwUrl;
+                card.target = '_blank';
+                card.className = 'stock-card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="stock-name">${stock.name}</div>
+                        <div class="stock-type">${stock.type}</div>
+                    </div>
+                    <div class="card-grid">
+                        <div class="grid-item">
+                            <span class="grid-label">Entry Zone</span>
+                            <span class="grid-val">${stock.entry}</span>
+                        </div>
+                        <div class="grid-item">
+                            <span class="grid-label">Target</span>
+                            <span class="grid-val val-target">${stock.target}</span>
+                        </div>
+                        <div class="grid-item">
+                            <span class="grid-label">SL</span>
+                            <span class="grid-val val-sl">${stock.sl}</span>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="confidence" title="Confidence">${stock.conf}</div>
+                        <div class="groww-hint">Open in Groww ↗</div>
+                    </div>
+                `;
+                stockListContainer.appendChild(card);
+            });
+        }
+
+        // Search Filter API Logic
+        function filterStocks() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = stockData.filter(stock => 
+                stock.name.toLowerCase().includes(query) || 
+                stock.type.toLowerCase().includes(query)
+            );
+            renderStocks(filtered);
+        }
+
+        // Initial Render
+        renderStocks(stockData);
+    </script>
+</body>
+</html>
