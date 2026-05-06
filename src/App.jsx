@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { neon } from '@neondatabase/serverless';
 import './App.css';
 
-const sql = neon("postgresql://neondb_owner:npg_HPp2oxjbWO6q@ep-orange-waterfall-ao5qh5o3.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require");
+const sql = neon("postgresql://neondb_owner:npg_HPp2oxjbWO6q@ep-orange-waterfall-ao5qh5o3.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require", { disableWarningInBrowsers: true });
 
 const initialStockData = [
   { id: 1, name: "ADANIPORTS", entry: "₹1,630–1,650", entryLow: 1630, entryHigh: 1650, target: "₹1,820", targetVal: 1820, sl: "₹1,578", slVal: 1578, type: "Swing", ticker: "ADANIPORTS", groww: "adani-ports-and-special-economic-zone-ltd" },
@@ -15,27 +15,15 @@ const initialStockData = [
   { id: 17, name: "YES BANK 🪙", entry: "₹17.5–18.5", entryLow: 17.5, entryHigh: 18.5, target: "₹24", targetVal: 24, sl: "₹16", slVal: 16, type: "Intraday/2D", ticker: "YESBANK", groww: "yes-bank-ltd" }
 ];
 
-const YAHOO_BASE = (ticker) => `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}.NS?interval=1d`;
-const PROXIES = [
-  (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-];
+const YAHOO_BASE = (ticker) => `/api/yahoo/v8/finance/chart/${ticker}.NS?interval=1d`;
 
 async function tryFetch(url) {
-  for (const makeProxy of PROXIES) {
-    try {
-      const res = await fetch(makeProxy(url), { signal: AbortSignal.timeout(7000) });
-      if (!res.ok) continue;
-      const text = await res.text();
-      let json;
-      try { json = JSON.parse(text); } catch { continue; }
-      if (json.contents) {
-        try { json = JSON.parse(json.contents); } catch { continue; }
-      }
-      if (json?.chart?.result?.[0]) return json;
-    } catch (_) { continue; }
-  }
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json?.chart?.result?.[0]) return json;
+  } catch (_) { }
   return null;
 }
 
@@ -127,16 +115,18 @@ export default function App() {
     setPrices(newPrices);
     setLastUpdated(new Date());
 
-    // 2. Fetch live data independently
-    updatedStocks.forEach(async (stock) => {
-      const liveData = await fetchPriceLive(stock);
-      if (liveData) {
-        setPrices(prev => ({
-          ...prev,
-          [stock.id]: { price: liveData.price, changePct: liveData.changePct, fromDB: false }
-        }));
-        saveToDB(stock, liveData.price, liveData.changePct);
-      }
+    // 2. Fetch live data independently, staggered to prevent 429 Too Many Requests
+    updatedStocks.forEach((stock, index) => {
+      setTimeout(async () => {
+        const liveData = await fetchPriceLive(stock);
+        if (liveData) {
+          setPrices(prev => ({
+            ...prev,
+            [stock.id]: { price: liveData.price, changePct: liveData.changePct, fromDB: false }
+          }));
+          saveToDB(stock, liveData.price, liveData.changePct);
+        }
+      }, index * 1000); // 1-second delay between each stock fetch
     });
   }, [stocks, prices]);
 
